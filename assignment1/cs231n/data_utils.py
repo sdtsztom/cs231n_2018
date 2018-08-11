@@ -3,7 +3,10 @@ from __future__ import print_function
 from six.moves import cPickle as pickle
 import numpy as np
 import os
-from scipy.ndimage import imread
+# imread is deprecated! imread is deprecated in SciPy 1.0.0, and will be removed in 1.2.0.
+# see https://docs.scipy.org/doc/scipy/reference/ndimage.html
+#from scipy.ndimage import imread
+from matplotlib.pyplot import imread
 import platform
 
 def load_pickle(f):
