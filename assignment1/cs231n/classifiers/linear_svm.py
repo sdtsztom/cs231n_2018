@@ -28,16 +28,16 @@ def svm_loss_naive(W, X, y, reg):
   for i in range(num_train):
     scores = X[i].dot(W)
     correct_class_score = scores[y[i]]
-
+	
     for j in range(num_classes):
       if j == y[i]:
         continue
       margin = scores[j] - correct_class_score + 1 # note delta = 1
       if margin > 0:
         loss += margin
-        #计算j不等于yi的行的梯度
+        # calculate grad of scores[j] term
         dW[:, j] += X[i]
-        #j=yi时的梯度
+        # calculate grad of -correct_class_score term
         dW[:, y[i]]+=(-X[i])
 
   # Right now the loss is a sum over all training examples, but we want it
@@ -45,8 +45,13 @@ def svm_loss_naive(W, X, y, reg):
   loss /= num_train
   dW /= num_train
   # Add regularization to the loss.
-  loss += 0.5*reg * np.sum(W * W)
-  dW += reg * W
+  
+  # reg本来就是超参数了，不用多余地乘以1/2
+  # loss += reg * np.sum(W * W)
+  
+  loss += reg * np.sum(W * W)
+  dW += 2 * reg * W
+
   #############################################################################
   # TODO:                                                                     #
   # Compute the gradient of the loss function and store it dW.                #
@@ -55,6 +60,7 @@ def svm_loss_naive(W, X, y, reg):
   # loss is being computed. As a result you may need to modify some of the    #
   # code above to compute the gradient.                                       #
   #############################################################################
+
 
   return loss, dW
 
@@ -67,44 +73,28 @@ def svm_loss_vectorized(W, X, y, reg):
   """
   loss = 0.0
   dW = np.zeros(W.shape) # initialize the gradient as zero
-  num_train=X.shape[0]
+  num_train = X.shape[0]
   num_classes = W.shape[1]
+  
   #############################################################################
   # TODO:                                                                     #
   # Implement a vectorized version of the structured SVM loss, storing the    #
   # result in loss.                                                           #
   #############################################################################
-  #pass
+  
+  # scores has a shape of (num_train x num_classes)
+  scores = X.dot(W)
+  # pick out the correct_class_score of every sample
+  # correct_class_scores has a shape of (num_train,1)
+  correct_class_score = scores[np.arange(num_train),y][:,np.newaxis]
+  margin = scores-correct_class_score + 1.0
+  margin[np.arange(num_train),y] = 0
+  loss = (np.sum(margin[margin > 0])) / num_train
+  loss += reg * np.sum(W * W)
+  
   #############################################################################
   #                             END OF YOUR CODE                              #
   #############################################################################
-
-
-  scores = X.dot(W)
-  #这里得到一个500*10的矩阵,表示500个image的ground truth
-  correct_class_score = scores[np.arange(num_train),y]
-  #重复10次,得到500*10的矩阵,才可以和scores相加相减
-  correct_class_score = np.reshape(np.repeat(correct_class_score,num_classes),(num_train,num_classes))
-  margin = scores-correct_class_score+1.0
-  margin[np.arange(num_train),y]=0
-
-  loss = (np.sum(margin[margin > 0]))/num_train
-  loss+=0.5*reg*np.sum(W*W)
-
-  #gradient
-  margin[margin>0]=1
-  margin[margin<=0]=0
-
-  row_sum = np.sum(margin, axis=1)                  # 1 by N
-  margin[np.arange(num_train), y] = -row_sum
-  dW += np.dot(X.T, margin)     # D by C
-  # for xi in range(num_train):
-  #   dW+=np.reshape(X[xi],(dW.shape[0],1))*\
-  #       np.reshape(margin[xi],(1,dW.shape[1]))
-
-  dW/=num_train
-  dW += reg * W
-
 
 
   #############################################################################
@@ -116,7 +106,14 @@ def svm_loss_vectorized(W, X, y, reg):
   # to reuse some of the intermediate values that you used to compute the     #
   # loss.                                                                     #
   #############################################################################
-  #pass
+  
+  coefficient = np.zeros(margin.shape)
+  coefficient[margin>0] = 1
+  coefficient[np.arange(num_train),y] -= coefficient.sum(axis=1)
+  dW += np.dot(X.T,coefficient)
+  dW /= num_train
+  dW += 2 * reg * W 
+  
   #############################################################################
   #                             END OF YOUR CODE                              #
   #############################################################################
