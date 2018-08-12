@@ -66,15 +66,15 @@ class KNearestNeighbor(object):
     dists = np.zeros((num_test, num_train))
     for i in range(num_test):
       for j in range(num_train):
-        distances = np.sqrt(np.sum(np.square(self.X_train[j] - X[i])))
-        dists[i,j]=distances
         #####################################################################
         # TODO:                                                             #
         # Compute the l2 distance between the ith test point and the jth    #
         # training point, and store the result in dists[i, j]. You should   #
         # not use a loop over dimension.                                    #
         #####################################################################
-        #pass
+
+        dists[i,j] = np.linalg.norm(X[i] - self.X_train[j])
+
         #####################################################################
         #                       END OF YOUR CODE                            #
         #####################################################################
@@ -91,13 +91,19 @@ class KNearestNeighbor(object):
     num_train = self.X_train.shape[0]
     dists = np.zeros((num_test, num_train))
     for i in range(num_test):
-      distances = np.sqrt(np.sum(np.square(self.X_train - X[i]),axis = 1))
-      dists[i, :] = distances
       #######################################################################
       # TODO:                                                               #
       # Compute the l2 distance between the ith test point and all training #
       # points, and store the result in dists[i, :].                        #
       #######################################################################
+      
+      # actually it cost 3x time than two_loop approach
+      # because broadcasting is not always efficient
+      # here is the quote from offical document:
+      # "There are, however, cases where broadcasting is a bad idea because it leads to inefficient use of memory that slows computation."
+
+      dists[i, :] = np.linalg.norm(self.X_train - X[i],axis = 1)
+
       #######################################################################
       #                         END OF YOUR CODE                            #
       #######################################################################
@@ -126,23 +132,20 @@ class KNearestNeighbor(object):
     # HINT: Try to formulate the l2 distance using matrix multiplication    #
     #       and two broadcast sums.                                         #
     #########################################################################
+  
+    dists = np.sqrt((X**2).sum(axis = 1)[:,np.newaxis] + (self.X_train**2).sum(axis = 1) - 2*np.dot(X, self.X_train.T))
 
-    M = np.dot(X, self.X_train.T)
-    nrow=M.shape[0]
-    ncol=M.shape[1]
-    te = np.diag(np.dot(X,X.T))
-    tr = np.diag(np.dot(self.X_train,self.X_train.T))
-    te= np.reshape(np.repeat(te,ncol),M.shape)
-    tr = np.reshape(np.repeat(tr, nrow), M.T.shape)
-    sq=-2 * M +te+tr.T
-    dists = np.sqrt(sq)
+    '''
+    why not use directly calculate the dists like this?
 
-    #ans
-    # M = np.dot(X, self.X_train.T)
-    # te = np.square(X).sum(axis=1)
-    # tr = np.square(self.X_train).sum(axis=1)
-    # dists = np.sqrt(-2 * M + tr + np.matrix(te).T)
-    # print(M.shape,te.shape,tr.shape,dists.shape)
+    code:
+    X_3d=X.reshape(num_test,1,-1)
+    dists=np.sum(np.square(X_3d-self.X_train),axis=2)
+
+    answer:
+    because it'll cost memory up to 500*5000*3072(which is D mentioned above)*8 Bytes (approximate equal to 57 Gb)
+    and is also obviously inefficient for the same reason as previous approach
+    '''
 
     #########################################################################
     #                         END OF YOUR CODE                              #
@@ -177,9 +180,9 @@ class KNearestNeighbor(object):
       # Hint: Look up the function numpy.argsort.                             #
       #########################################################################
 
-      distances=dists[i,:]
-      indexes = np.argsort(distances)
-      closest_y=self.y_train[indexes[:k]]
+      top_k_idx = np.argsort(dists[i])
+      closest_y=self.y_train[top_k_idx[:k]]
+
       #########################################################################
       # TODO:                                                                 #
       # Now that you have found the labels of the k nearest neighbors, you    #
@@ -188,9 +191,9 @@ class KNearestNeighbor(object):
       # label.                                                                #
       #########################################################################
 
-      #Calculate the number of occurrences of all the numbers
       count = np.bincount(closest_y)
       y_pred[i] = np.argmax(count)
+
       #########################################################################
       #                           END OF YOUR CODE                            # 
       #########################################################################
