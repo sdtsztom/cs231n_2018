@@ -22,39 +22,39 @@ def softmax_loss_naive(W, X, y, reg):
   # Initialize the loss and gradient to zero.
   loss = 0.0
   dW = np.zeros_like(W)
-  num_classes = W.shape[1]
-  num_train = X.shape[0]
 
-  scores=X.dot(W)
-  maxLogC = np.max(scores,axis=1)
-  maxLogC=np.reshape(np.repeat(maxLogC,num_classes),scores.shape )
-  expScores=np.exp(scores+maxLogC)
-
-  #loss and gradient implement
-  for i in range(num_train):
-    # substract maxnium to make the exp standard
-
-    esum=sum(expScores[i])
-    eyi = expScores[i,y[i]]
-    li = -np.log(eyi / esum)
-    loss+=li
-
-    for j in range(num_classes):
-      dW[:,j]+=(expScores[i,j]/esum)*X[i]
-
-    dW[:,y[i]] -= X[i]
-  loss /= num_train
-  loss += 0.5*reg * np.sum(W*W)
-
-  dW /= num_train
-  dW += reg * W
   #############################################################################
   # TODO: Compute the softmax loss and its gradient using explicit loops.     #
   # Store the loss in loss and the gradient in dW. If you are not careful     #
   # here, it is easy to run into numeric instability. Don't forget the        #
   # regularization!                                                           #
   #############################################################################
-  #pass
+  
+  num_classes = W.shape[1]
+  num_train = X.shape[0]
+ 
+  for i in range(num_train):
+    scores = X[i].dot(W)
+	  
+    # shift values for 'scores' for numeric reasons (over-flow cautious)
+	# see http://cs231n.github.io/linear-classify/#softmax
+    scores -= scores.max()
+    scores_exp_sum=np.sum(np.exp(scores))
+    crs = np.exp(scores[y[i]])/scores_exp_sum
+    loss -= np.log(crs)
+
+    # grad
+    for j in range(num_classes):
+      if j == y[i]:
+        dW[:, j] += (crs-1) * X[i] # for correct class
+      else:
+        dW[:, j] += np.exp(scores[j])/scores_exp_sum * X[i]     # for incorrect classes
+
+  loss /= num_train
+  loss += reg * np.sum(W * W)
+  dW /= num_train
+  dW += 2 * reg * W
+ 
   #############################################################################
   #                          END OF YOUR CODE                                 #
   #############################################################################
@@ -71,29 +71,6 @@ def softmax_loss_vectorized(W, X, y, reg):
   # Initialize the loss and gradient to zero.
   loss = 0.0
   dW = np.zeros_like(W)
-  num_classes = W.shape[1]
-  num_train = X.shape[0]
-
-  scores=X.dot(W)
-  maxLogC = np.max(scores,axis=1)
-  maxLogC=np.reshape(np.repeat(maxLogC,num_classes),scores.shape )
-  expScores=np.exp(scores+maxLogC)
-  exp_correct_class_score = expScores[np.arange(num_train), y]
-
-  #loss
-  loss=-np.log(exp_correct_class_score/np.sum(expScores,axis=1))
-  loss=sum(loss)/num_train
-  loss+=0.5*reg*np.sum(W*W)
-
-  #gradient
-  expScoresSumRow=np.reshape(np.repeat(np.sum(expScores,axis=1),num_classes),expScores.shape )
-  graidentMatrix=expScores/ expScoresSumRow
-  #对于yi要-1
-  graidentMatrix[np.arange(num_train),y]-=1
-  dW = X.T.dot(graidentMatrix)
-  # dW[np.arange(num_classes),y] -= X[y,]
-  dW/=num_train
-  dW+=reg*W
 
   #############################################################################
   # TODO: Compute the softmax loss and its gradient using no explicit loops.  #
@@ -101,7 +78,27 @@ def softmax_loss_vectorized(W, X, y, reg):
   # here, it is easy to run into numeric instability. Don't forget the        #
   # regularization!                                                           #
   #############################################################################
-  #pass
+  
+  num_classes = W.shape[1]
+  num_train = X.shape[0]
+  
+  # loss
+  # score: N by C matrix containing class scores
+  scores = X.dot(W)
+  scores -= np.max(scores,axis=1,keepdims=True)
+  scores_exp = np.exp(scores)
+  scores_exp_sums = np.sum(scores_exp, axis=1)
+  crs = scores_exp[range(num_train), y]/scores_exp_sums
+  loss -= np.sum(np.log(crs))/num_train 
+  loss += reg * np.sum(W * W)
+
+  # grad
+  s = scores_exp/scores_exp_sums[:,np.newaxis]
+  s[range(num_train), y] -= 1
+  dW = X.T.dot(s)
+  dW /= num_train
+  dW += 2 * reg * W
+  
   #############################################################################
   #                          END OF YOUR CODE                                 #
   #############################################################################

@@ -133,7 +133,7 @@ class KNearestNeighbor(object):
     #       and two broadcast sums.                                         #
     #########################################################################
   
-    dists = np.sqrt((X**2).sum(axis = 1)[:,np.newaxis] + (self.X_train**2).sum(axis = 1) - 2*np.dot(X, self.X_train.T))
+    dists = np.sqrt((X**2).sum(axis = 1,keepdims=True) + (self.X_train**2).sum(axis = 1) - 2*np.dot(X, self.X_train.T))
 
     '''
     why not use directly calculate the dists like this?
