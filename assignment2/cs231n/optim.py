@@ -60,14 +60,17 @@ def sgd_momentum(w, dw, config=None):
     config.setdefault('momentum', 0.9)
     v = config.get('velocity', np.zeros_like(w))
 
+    next_w = None
     ###########################################################################
     # TODO: Implement the momentum update formula. Store the updated value in #
     # the next_w variable. You should also use and update the velocity v.     #
     ###########################################################################
+	
     mu=config['momentum']
-    learning_rate=config['learning_rate']
-    v =  mu* v - learning_rate * dw  # integrate velocity
-    next_w = w+v
+    lr=config['learning_rate']
+    v =  mu * v - lr * dw
+    next_w = w + v
+	
     ###########################################################################
     #                             END OF YOUR CODE                            #
     ###########################################################################
@@ -77,7 +80,7 @@ def sgd_momentum(w, dw, config=None):
 
 
 
-def rmsprop(x, dx, config=None):
+def rmsprop(w, dw, config=None):
     """
     Uses the RMSProp update rule, which uses a moving average of squared
     gradient values to set adaptive per-parameter learning rates.
@@ -93,31 +96,31 @@ def rmsprop(x, dx, config=None):
     config.setdefault('learning_rate', 1e-2)
     config.setdefault('decay_rate', 0.99)
     config.setdefault('epsilon', 1e-8)
-    config.setdefault('cache', np.zeros_like(x))
+    config.setdefault('cache', np.zeros_like(w))
 
-    next_x = None
+    next_w = None
     ###########################################################################
-    # TODO: Implement the RMSprop update formula, storing the next value of x #
-    # in the next_x variable. Don't forget to update cache value stored in    #
+    # TODO: Implement the RMSprop update formula, storing the next value of w #
+    # in the next_w variable. Don't forget to update cache value stored in    #
     # config['cache'].                                                        #
     ###########################################################################
+	
     decay_rate=config['decay_rate']
     cache=config['cache']
-    learning_rate = config['learning_rate']
+    lr = config['learning_rate']
     eps=config['epsilon']
-
-    cache = decay_rate * cache + (1 - decay_rate) * dx ** 2
-    next_x =x- learning_rate * dx / (np.sqrt(cache) + eps)
+    cache = decay_rate * cache + (1 - decay_rate) * (dw ** 2)
+    next_w = w - lr * dw / (np.sqrt(cache) + eps)
+    config['cache']=cache
+	
     ###########################################################################
     #                             END OF YOUR CODE                            #
     ###########################################################################
-    config['cache'] = cache
+
+    return next_w, config
 
 
-    return next_x, config
-
-
-def adam(x, dx, config=None):
+def adam(w, dw, config=None):
     """
     Uses the Adam update rule, which incorporates moving averages of both the
     gradient and its square and a bias correction term.
@@ -136,35 +139,42 @@ def adam(x, dx, config=None):
     config.setdefault('beta1', 0.9)
     config.setdefault('beta2', 0.999)
     config.setdefault('epsilon', 1e-8)
-    config.setdefault('m', np.zeros_like(x))
-    config.setdefault('v', np.zeros_like(x))
-    config.setdefault('t', 1)
+    config.setdefault('m', np.zeros_like(w))
+    config.setdefault('v', np.zeros_like(w))
+    config.setdefault('t', 0)
 
-    next_x = None
+    next_w = None
     ###########################################################################
-    # TODO: Implement the Adam update formula, storing the next value of x in #
-    # the next_x variable. Don't forget to update the m, v, and t variables   #
+    # TODO: Implement the Adam update formula, storing the next value of w in #
+    # the next_w variable. Don't forget to update the m, v, and t variables   #
     # stored in config.                                                       #
+    #                                                                         #
+    # NOTE: In order to match the reference output, please modify t _before_  #
+    # using it in any calculations.                                           #
     ###########################################################################
-    learning_rate = config['learning_rate']
-    m=config['m']
+	
+    lr = config['learning_rate']
     beta1=config['beta1']
     beta2 = config['beta2']
+    m=config['m']
     v=config['v']
-    eps = config['epsilon']
     t=config['t']
-    t+=1
+    eps = config['epsilon']
+	
+    t += 1
 
-    m = beta1 * m + (1 - beta1) * dx
+    m = beta1 * m + (1 - beta1) * dw
     mt = m / (1 - beta1 ** t)
-    v = beta2 * v + (1 - beta2) * (dx ** 2)
+    v = beta2 * v + (1 - beta2) * (dw ** 2)
     vt = v / (1 - beta2 ** t)
-    next_x =x - learning_rate * mt / (np.sqrt(vt) + eps)
+    next_w = w - lr * mt / (np.sqrt(vt) + eps)
+	
+    config['t'] = t
+    config['m'] = m
+    config['v'] = v
+	
     ###########################################################################
     #                             END OF YOUR CODE                            #
     ###########################################################################
-    config['m'] = m
-    config['v'] = v
-    config['t'] +=1
 
-    return next_x, config
+    return next_w, config
