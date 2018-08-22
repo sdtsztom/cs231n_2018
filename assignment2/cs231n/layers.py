@@ -391,19 +391,28 @@ def layernorm_backward(dout, cache):
 def dropout_forward(x, dropout_param):
     """
     Performs the forward pass for (inverted) dropout.
+
     Inputs:
     - x: Input data, of any shape
     - dropout_param: A dictionary with the following keys:
-      - p: Dropout parameter. We drop each neuron output with probability p.
+      - p: Dropout parameter. We keep each neuron output with probability p.
       - mode: 'test' or 'train'. If the mode is train, then perform dropout;
         if the mode is test, then just return the input.
       - seed: Seed for the random number generator. Passing seed makes this
         function deterministic, which is needed for gradient checking but not
         in real networks.
+
     Outputs:
     - out: Array of the same shape as x.
     - cache: tuple (dropout_param, mask). In training mode, mask is the dropout
       mask that was used to multiply the input; in test mode, mask is None.
+
+    NOTE: Please implement **inverted** dropout, not the vanilla version of dropout.
+    See http://cs231n.github.io/neural-networks-2/#reg for more details.
+
+    NOTE 2: Keep in mind that p is the probability of **keep** a neuron
+    output; this might be contrary to some sources, where it is referred to
+    as the probability of dropping a neuron output.
     """
     p, mode = dropout_param['p'], dropout_param['mode']
     if 'seed' in dropout_param:
@@ -417,9 +426,10 @@ def dropout_forward(x, dropout_param):
         # TODO: Implement training phase forward pass for inverted dropout.   #
         # Store the dropout mask in the mask variable.                        #
         #######################################################################
-        retain_prob=1.0-p
-        mask = np.random.binomial(n=1, p=retain_prob, size=x.shape)
+		
+        mask = (np.random.rand(*x.shape) < p) / p
         out=x*mask
+		
         #######################################################################
         #                           END OF YOUR CODE                          #
         #######################################################################
@@ -427,7 +437,9 @@ def dropout_forward(x, dropout_param):
         #######################################################################
         # TODO: Implement the test phase forward pass for inverted dropout.   #
         #######################################################################
+		
         out=x
+		
         #######################################################################
         #                            END OF YOUR CODE                         #
         #######################################################################
@@ -441,12 +453,28 @@ def dropout_forward(x, dropout_param):
 def dropout_backward(dout, cache):
     """
     Perform the backward pass for (inverted) dropout.
+
     Inputs:
     - dout: Upstream derivatives, of any shape
     - cache: (dropout_param, mask) from dropout_forward.
     """
     dropout_param, mask = cache
     mode = dropout_param['mode']
+
+    dx = None
+    if mode == 'train':
+        #######################################################################
+        # TODO: Implement training phase backward pass for inverted dropout   #
+        #######################################################################
+		
+        dx=dout*mask
+		
+        #######################################################################
+        #                          END OF YOUR CODE                           #
+        #######################################################################
+    elif mode == 'test':
+        dx = dout
+    return dx
 
     dx = None
     if mode == 'train':
