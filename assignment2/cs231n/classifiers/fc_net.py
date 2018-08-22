@@ -188,6 +188,7 @@ class FullyConnectedNet(object):
         ############################################################################
 		
         self.use_batchnorm = (self.normalization == 'batchnorm')
+        self.use_layernorm = (self.normalization == 'layernorm')
 		
         dims = [input_dim] + hidden_dims + [num_classes]
 
@@ -196,7 +197,7 @@ class FullyConnectedNet(object):
             self.params['b%d' % (i)] = np.zeros(dims[i])
 			
             #batch normalization intialize
-            if self.use_batchnorm and layer!=self.num_layers:
+            if (self.use_batchnorm or self.use_layernorm) and i< self.num_layers:
                 self.params['gamma%d' % (i)] = np.ones(dims[i])
                 self.params['beta%d' % (i)] = np.zeros(dims[i])
 				
@@ -270,10 +271,13 @@ class FullyConnectedNet(object):
 
 			# output layer doesn't include layers below
             if i<self.num_layers:
-                # batch normalization
+                # batch normalization or layer normalization
                 if self.use_batchnorm:
                     gammai , betai = self.params['gamma%d' % (i)] , self.params['beta%d' % (i)]
                     hi , cache['bn%d'%(i)] = batchnorm_forward(hi , gammai , betai , self.bn_params[i-1])
+                elif self.use_layernorm:
+                    gammai , betai = self.params['gamma%d' % (i)] , self.params['beta%d' % (i)]
+                    hi , cache['bn%d'%(i)] = layernorm_forward(hi , gammai , betai , self.bn_params[i-1])
 				
                 # relu
                 hi, cache['relu%d'%(i)] = relu_forward(hi)
@@ -325,9 +329,11 @@ class FullyConnectedNet(object):
                 # relu
                 dhi = relu_backward(dhi, cache['relu%d'%(i)])
 			
-                # batch normalization
+                # batch normalization or layernorm
                 if self.use_batchnorm:
-                    dout, grads['gamma%d'%(i)], grads['beta%d'%(i)] = batchnorm_backward(dhi, cache['bn%d'%(i)])
+                    dhi, grads['gamma%d'%(i)], grads['beta%d'%(i)] = batchnorm_backward(dhi, cache['bn%d'%(i)])
+                elif self.use_layernorm:
+                    dhi, grads['gamma%d'%(i)], grads['beta%d'%(i)] = layernorm_backward(dhi, cache['bn%d'%(i)])
 
             # affine
             dhi, grads['W%d' % (i)], grads['b%d' % (i)] = affine_backward(dhi, cache['af%d'%(i)])
