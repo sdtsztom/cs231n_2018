@@ -5,7 +5,7 @@ from builtins import range
 import urllib.request, urllib.error, urllib.parse, os, tempfile
 
 import numpy as np
-from scipy.misc import imread, imresize
+from scipy.misc import imread,imresize
 
 """
 Utility functions used for viewing and processing images.
@@ -53,7 +53,7 @@ def deprocess_image(img, rescale=False):
     return np.clip(255 * img, 0.0, 255.0).astype(np.uint8)
 
 
-def image_from_url(url):
+def image_from_url(url,cache):
     """
     Read an image from a URL. Returns a numpy array with the pixel data.
     We write the image to a temporary file then read it back. Kinda gross.
@@ -64,7 +64,8 @@ def image_from_url(url):
         with open(fname, 'wb') as ff:
             ff.write(f.read())
         img = imread(fname)
-        os.remove(fname)
+        #os.remove(fname)
+        cache.append(fname)
         return img
     except urllib.error.URLError as e:
         print('URL Error: ', e.reason, url)

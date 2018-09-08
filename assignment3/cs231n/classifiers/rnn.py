@@ -136,26 +136,35 @@ class CaptioningRNN(object):
         # with respect to all model parameters. Use the loss and grads variables   #
         # defined above to store loss and gradients; grads[k] should give the      #
         # gradients for self.params[k].                                            #
+        #                                                                          #
+        # Note also that you are allowed to make use of functions from layers.py   #
+        # in your implementation, if needed.                                       #
         ############################################################################
-        h0=np.dot(features,W_proj)+b_proj
-        out, embedding_cache=word_embedding_forward(captions_in, W_embed)
-        if self.cell_type=="rnn":
-            h, forward_cache=rnn_forward(out, h0, Wx, Wh, b)
-        else:
-            h, forward_cache=lstm_forward(out, h0, Wx, Wh, b)
-        vout,v_cache=temporal_affine_forward(h,W_vocab, b_vocab)
-        loss, dx=temporal_softmax_loss(vout, captions_out , mask, verbose=False)
+		
+		# forward
+		# (1)
+        h0 , cache_affine = affine_forward(features,W_proj,b_proj)
+		# (2)
+        captions_encoded_in , cache_embedding = word_embedding_forward(captions_in, W_embed)
+		# (3)
+        forward_net = {'lstm': lstm_forward, 'rnn': rnn_forward}[self.cell_type]
+        h , cache_forward = forward_net(captions_encoded_in, h0, Wx, Wh, b)
+		# (4)
+        y , cache_vocab = temporal_affine_forward(h,W_vocab, b_vocab)
+		# (5)
+        loss , dy = temporal_softmax_loss(y, captions_out , mask, verbose=False)
         
-        #gradient
-        dout,grads["W_vocab"],grads["b_vocab"]=temporal_affine_backward(dx, v_cache)
-        if self.cell_type=="rnn":
-            dout, dh0,grads["Wx"],grads["Wh"],grads["b"]=rnn_backward(dout,forward_cache)
-        else:
-            dout, dh0,grads["Wx"],grads["Wh"],grads["b"]=lstm_backward(dout,forward_cache)
-        grads["W_embed"]=word_embedding_backward(dout,embedding_cache)
-        
-        grads["W_proj"]=np.dot(features.T,dh0)
-        grads["b_proj"]=np.sum(dh0,axis=0)
+        # gradient
+		# (4)
+        dh , grads["W_vocab"] , grads["b_vocab"] = temporal_affine_backward(dy, cache_vocab)
+		# (3)
+        backward_net = {'lstm': lstm_backward, 'rnn': rnn_backward}[self.cell_type]
+        dcaptions_edcoded_in , dh0,grads['Wx'] , grads['Wh'] , grads['b'] = backward_net(dh,cache_forward)
+		# (2)
+        grads["W_embed"] = word_embedding_backward(dcaptions_edcoded_in,cache_embedding)
+        # (1)
+        _ , grads["W_proj"] , grads["b_proj"] = affine_backward(dh0,cache_affine)
+		
         ############################################################################
         #                             END OF YOUR CODE                             #
         ############################################################################
@@ -208,7 +217,7 @@ class CaptioningRNN(object):
         # (3) Apply the learned affine transformation to the next hidden state to #
         #     get scores for all words in the vocabulary                          #
         # (4) Select the word with the highest score as the next word, writing it #
-        #     to the appropriate slot in the captions variable                    #
+        #     (the word index) to the appropriate slot in the captions variable   #
         #                                                                         #
         # For simplicity, you do not need to stop generating after an <END> token #
         # is sampled, but you can if you want to.                                 #
@@ -216,32 +225,27 @@ class CaptioningRNN(object):
         # HINT: You will not be able to use the rnn_forward or lstm_forward       #
         # functions; you'll need to call rnn_step_forward or lstm_step_forward in #
         # a loop.                                                                 #
+        #                                                                         #
+        # NOTE: we are still working over minibatches in this function. Also if   #
+        # you are using an LSTM, initialize the first cell state to zeros.        #
         ###########################################################################
-        pre_word=np.array([self._start]*N)
+		
+        pre_word=np.full(N,self._start)
         prev_h=np.dot(features,W_proj)+b_proj
         H=prev_h.shape[1]
         
-        if self.cell_type!="rnn":
-            prev_c=np.zeros((N,H))
+        prev_c=np.zeros((N,H))
             
-        for wi in range(max_length):
+        for t in range(max_length):
             out,_ = word_embedding_forward(pre_word, W_embed)
             if self.cell_type=="rnn":
                 next_h,_ = rnn_step_forward(out, prev_h, Wx, Wh, b)
             else:
                 next_h, next_c, _=lstm_step_forward(out, prev_h, prev_c, Wx, Wh, b)
-            prev_h=next_h
-            if self.cell_type!="rnn":
                 prev_c=next_c
-            next_h=np.reshape(next_h,(next_h.shape[0],next_h.shape[1],1))
-            next_h=np.transpose(next_h,(0,2,1))
-            
-            vout,_ = temporal_affine_forward(next_h,W_vocab, b_vocab)
-            vout_idx=np.argmax(vout,axis=2)
-            for ni in range(N):
-                captions[ni,wi]=vout_idx[ni] 
-                
-            pre_word=vout_idx.reshape(N)
+            prev_h=next_h
+            y=next_h.dot(W_vocab)+b_vocab
+            captions[:,t]=pre_word=y_idx=np.argmax(y,axis=1)
             
         ############################################################################
         #                             END OF YOUR CODE                             #
