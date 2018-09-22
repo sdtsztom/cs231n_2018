@@ -476,19 +476,6 @@ def dropout_backward(dout, cache):
         dx = dout
     return dx
 
-    dx = None
-    if mode == 'train':
-        #######################################################################
-        # TODO: Implement training phase backward pass for inverted dropout   #
-        #######################################################################
-        dx=dout*mask
-        #######################################################################
-        #                          END OF YOUR CODE                           #
-        #######################################################################
-    elif mode == 'test':
-        dx = dout
-    return dx
-
 
 def conv_forward_naive(x, w, b, conv_param):
     """
